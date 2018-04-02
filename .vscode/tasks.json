@@ -1,0 +1,14 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "taskName": "build",
+            "command": "${workspaceFolder}/build-helper-vscode.sh",
+            "type": "process",
+            "args": [
+                "${workspaceFolder}/Loxone.Client.Samples.Console/Loxone.Client.Samples.Console.csproj"
+            ],
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}
