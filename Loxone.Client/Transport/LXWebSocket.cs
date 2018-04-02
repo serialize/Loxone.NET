@@ -37,8 +37,6 @@ namespace Loxone.Client.Transport
 
         private ICommandHandler _pendingCommand;
 
-        public event Func<object, ValueChangedEventArgs, Task> ValueChanged;
-
         public LXWebSocket(Uri baseUri, NetworkCredential credentials)
         {
             Contract.Requires(baseUri != null);
@@ -143,6 +141,8 @@ namespace Loxone.Client.Transport
 
             return false;
         }
+
+        public event Func<object, ValueChangedEventArgs, Task> ValueChanged;
 
         private async Task HandleValueStatesAsync(int length, CancellationToken cancellationToken)
         {

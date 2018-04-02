@@ -18,6 +18,7 @@ namespace Loxone.Client
     using System.Net.Http.Headers;
     using System.Threading;
     using System.Threading.Tasks;
+    using Loxone.Client.Transport;
 
     /// <summary>
     /// Encapsulates connection to the Loxone Miniserver.
@@ -117,18 +118,42 @@ namespace Loxone.Client
 
         private Timer _keepAliveTimer;
 
-        public EventHandler<ValueStateEventArgs> ValueStateChanged;
+        // ----------------------------------------------------------
+        // -------- brainfuck starts here
+        //
+        // values are provided for a "persistent store" implemented in the exporter
+        // till scraped by prometheus
+        // my understanding: exporter should not be implemented async. Am i wrong? 
+        public EventHandler<ValueChangedEventArgs> ValueStateChanged;
 
-        protected void OnValueStateChanged(ValueStateEventArgs e)
+        private void InvokeValueChanged(ValueChangedEventArgs e)
         {
             Contract.Requires(e != null);
             ValueStateChanged?.Invoke(this, e);
+        }
+
+        // above: eventhandler to attach from outside 
+        // - if async, then await is needed (not possible with eventhandler)
+        // - is a event bubbling up from async to void possible?
+        // - is async implementation all the way up needed?
+        // ---------------------------------------------------------------------------------
+        // below: websocket async event handler
+
+        private async Task OnValueChanged(object sender, ValueChangedEventArgs e)
+        {
+            // is a custom action with args param in constructor a clean
+            // implementation? 
+            await Task.Run(new Action(InvokeValueChanged, e));
         }
 
         public MiniserverConnection()
         {
             _miniserverInfo = new MiniserverLimitedInfo();
             _state = (int)State.Constructed;
+
+            _webSocket.ValueChanged += OnValueChanged;  
+                        // ^---- websocket async event.
+                        // Needs to be passed outside.  
         }
 
         public MiniserverConnection(Uri address)
