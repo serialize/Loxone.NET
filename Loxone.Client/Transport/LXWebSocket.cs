@@ -11,6 +11,7 @@
 namespace Loxone.Client.Transport
 {
     using System;
+    using System.Linq;
     using System.Collections.Generic;
     using System.Diagnostics.Contracts;
     using System.Net;
@@ -35,6 +36,8 @@ namespace Loxone.Client.Transport
         private CancellationTokenSource _receiveLoopCancellation;
 
         private ICommandHandler _pendingCommand;
+
+        public event Func<object, ValueChangedEventArgs, Task> ValueChanged;
 
         public LXWebSocket(Uri baseUri, NetworkCredential credentials)
         {
@@ -156,13 +159,37 @@ namespace Loxone.Client.Transport
                     states.Add(new ValueState(uuid, value));
                     length -= 24;
                 }
-            }
 
-            if (length > 0)
-            {
-                // Extra data beyond the last value state?
-                await SkipBytesAsync(length, cancellationToken).ConfigureAwait(false);
+                await InvokeValueChangedEvent(states);
+
+                if (length > 0)
+                {
+                    // Extra data beyond the last value state?
+                    await SkipBytesAsync(length, cancellationToken).ConfigureAwait(false);
+                }
             }
+        }
+
+        private async Task InvokeValueChangedEvent(List<ValueState> states)
+        {
+            Func<object, ValueChangedEventArgs, Task> handler = ValueChanged;
+
+            if (handler == null)
+                return;
+
+            await Task.WhenAll(handler.GetInvocationList().Select(
+                invocation => ((Func<object, ValueChangedEventArgs, Task>)invocation)(
+                    this, new ValueChangedEventArgs(states.AsReadOnly()))));
+            /* 
+            Delegate[] invocationList = handler.GetInvocationList();
+            Task[] handlerTasks = new Task[invocationList.Length];
+            for (int i = 0; i < invocationList.Length; i++)
+            {
+                handlerTasks[i] = ((Func<object, ValueChangedEventArgs, Task>)invocationList[i])(
+                    this, new ValueChangedEventArgs(states.AsReadOnly()));
+            }
+            await Task.WhenAll(handlerTasks);
+            */
         }
 
         private async Task SkipBytesAsync(int numberOfBytesToReadOut, CancellationToken cancellationToken)
